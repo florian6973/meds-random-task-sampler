@@ -1,7 +1,7 @@
 # MEDS Task Generation: Design
 
-**Status:** Initial design draft  
-**Package:** `meds-task-generation`  
+**Status:** Initial design draft
+**Package:** `meds-task-generation`
 **Python module:** `meds_task_generation`
 
 ## 1. Summary
@@ -175,9 +175,9 @@ and row shapes. They are not benchmark task definitions and do not determine ben
 `collection.yaml` and `manifest.yaml` serve different purposes:
 
 - `collection.yaml` is the human-authored, portable generation request. It may use compact Cartesian-product
-  declarations and references to code-list files or MEDS metadata.
+    declarations and references to code-list files or MEDS metadata.
 - `manifest.yaml` is the immutable, fully resolved output. It lists every concrete task and records the
-  dataset fingerprint, resolved codes, derived task IDs, generation parameters, and observed provenance.
+    dataset fingerprint, resolved codes, derived task IDs, generation parameters, and observed provenance.
 
 An illustrative authored `collection.yaml` is:
 
@@ -258,7 +258,7 @@ generator:
 seed: 1
 
 dataset:
-  fingerprint: "..."
+  fingerprint: '...'
 
 prediction_times:
   count_per_subject: 1
@@ -281,7 +281,7 @@ tasks:
 source_splits:
   path: metadata/subject_splits.parquet
   included: [train, tuning, held_out]
-  fingerprint: "..."
+  fingerprint: '...'
 ```
 
 The manifest written to disk must contain fully resolved code lists and task definitions. It must
@@ -292,18 +292,18 @@ not rely on external YAML aliases, unresolved Hydra interpolation, or mutable me
 Patient splits and query-code partitions are independent axes. Patient splits are read from MEDS and never
 resampled by this package:
 
-| Axis | Training | Validation | Test |
-|---|---|---|---|
-| Patients | `train` | `tuning` | `held_out` |
-| ID query codes | available | available | evaluated |
-| Held-out query codes | excluded from model query training | optionally monitored | evaluated |
+| Axis                 | Training                           | Validation           | Test       |
+| -------------------- | ---------------------------------- | -------------------- | ---------- |
+| Patients             | `train`                            | `tuning`             | `held_out` |
+| ID query codes       | available                          | available            | evaluated  |
+| Held-out query codes | excluded from model query training | optionally monitored | evaluated  |
 
 Holding out a code means excluding it from a model's query-target training distribution. It does
 not remove the code from patient histories or from the MEDS vocabulary.
 
 The package must validate explicit policies, including:
 
-- `allow_overlap`: no disjointness requirement;
+- `allow_overlap`: no non-overlap requirement;
 - `held_out_from_training`: held-out evaluation codes must not appear in the training-query list;
 - `fully_disjoint`: all named query partitions must be pairwise disjoint.
 
@@ -350,7 +350,7 @@ The supported policies should be:
 - `preserve` (default): keep censored rows with a nullable label;
 - `drop`: detect and count censored rows, then omit them from model-facing labels;
 - `require_full_followup`: define eligibility using complete follow-up through the collection's maximum
-  horizon; intended only for explicitly chosen sensitivity analyses.
+    horizon; intended only for explicitly chosen sensitivity analyses.
 
 A proposed schema for the default `preserve` policy is:
 
@@ -432,9 +432,9 @@ The first CLI should be a single end-to-end command:
 
 ```bash
 meds-task-generation generate \
-  data_dir="$MEDS_DATASET" \
-  config=collection.yaml \
-  output_dir="$TASK_COLLECTION"
+	data_dir="$MEDS_DATASET" \
+	config=collection.yaml \
+	output_dir="$TASK_COLLECTION"
 ```
 
 Useful inspection commands may follow:
@@ -608,17 +608,17 @@ currently does.”
 ## 20. Open questions
 
 1. Can the canonical collection schema extend the MEDS label schema with nullable `boolean_value` and
-   `is_censored`, or should it store canonical collection labels separately and export observed-only MEDS
-   labels for compatibility?
+    `is_censored`, or should it store canonical collection labels separately and export observed-only MEDS
+    labels for compatibility?
 2. What is the canonical dataset fingerprint for a sharded MEDS dataset?
 3. Should prediction times be shared across all tasks, or may a task request its own eligibility
-   criteria?
+    criteria?
 4. Should fixed task collections list tasks explicitly, or may a manifest contain a resolved
-   Cartesian-product declaration?
+    Cartesian-product declaration?
 5. Which code-normalization rules, if any, are safe across MEDS datasets?
 6. How should terminal events such as death affect censoring for unrelated outcomes?
 7. Should task IDs include dataset-specific code mappings, or should those live in a separate
-   realization identifier?
+    realization identifier?
 8. What collection-prediction schema should `meds-evaluation` adopt?
 9. How should aggregate metrics treat tasks with no positives, no negatives, or only censored rows?
 10. Which behaviors should be identical to EveryQuery for migration compatibility, and which should
@@ -632,10 +632,10 @@ The following decisions are considered part of the initial project direction:
 - The repository is bootstrapped from MHAL-template.
 - The package is model-independent.
 - MEDS-DEV directly invokes fixed benchmark collection generation, not model-specific pretraining
-  sampling.
+    sampling.
 - Benchmark task definitions are stable across patient splits.
 - Existing patient split assignments are read from MEDS `metadata/subject_splits.parquet`; the package never
-  creates an alternative train/tuning/held-out assignment.
+    creates an alternative train/tuning/held-out assignment.
 - Patient splits and query-code partitions are separate concepts.
 - The first task language is single-code occurrence within a fixed future horizon.
 - Prediction times are stored separately from the dense task-label table.
