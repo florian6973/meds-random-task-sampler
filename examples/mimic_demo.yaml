@@ -1,0 +1,33 @@
+schema_version: 1
+metadata:
+  name: mimic-iv-demo-code-horizons
+  description: Six code-occurrence tasks for the public MIMIC-IV demo cohort.
+seed: 6973
+subjects:
+  splits: [train, tuning, held_out]
+  subsample_fraction: 1.0
+prediction_times:
+  strategy: random_event_time
+  count_per_subject: 1
+  minimum_prior_events: 5
+tasks:
+  type: code_occurrence
+  query_codes:
+    source: explicit
+    values:
+      - DIAGNOSIS//ICD//9//4019
+      - DIAGNOSIS//ICD//9//2724
+  horizons_days: [7, 30, 365]
+  groups:
+    common_demo_diagnoses:
+      query_codes:
+        - DIAGNOSIS//ICD//9//4019
+        - DIAGNOSIS//ICD//9//2724
+labeling:
+  window:
+    start_inclusive: false
+    end_inclusive: true
+  censoring:
+    policy: preserve
+output:
+  partition_by: [split]
