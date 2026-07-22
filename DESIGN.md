@@ -1,12 +1,12 @@
-# MEDS Task Generation: Design
+# MEDS Random Task Sampler: Design
 
 **Status:** Initial design draft
-**Package:** `meds-task-generation`
-**Python module:** `meds_task_generation`
+**Package:** `meds-random-task-sampler`
+**Python module:** `meds_random_task_sampler`
 
 ## 1. Summary
 
-`meds-task-generation` generates reproducible collections of prediction tasks and labels from a
+`meds-random-task-sampler` generates reproducible collections of prediction tasks and labels from a
 MEDS dataset. Its initial task language is the single-code, fixed-horizon question:
 
 > Given a subject's history through prediction time `t`, does code `c` occur in the interval
@@ -28,7 +28,7 @@ The repository will be created from
 assembled as an ad hoc Python project. In particular, it will retain the template's conventions:
 
 - `uv` for dependency and environment management;
-- a `src/meds_task_generation/` package layout;
+- a `src/meds_random_task_sampler/` package layout;
 - `pytest` and doctests, with doctests treated as first-class tests;
 - Ruff formatting and linting using the Google Python style;
 - pre-commit hooks, secret scanning, and the existing GitHub Actions structure;
@@ -97,7 +97,7 @@ benchmark contract.
 MEDS dataset
     |
     v
-meds-task-generation
+meds-random-task-sampler
     |-- task collection manifest
     |-- prediction-time index
     `-- labels for train/tuning/held_out
@@ -125,7 +125,7 @@ result to a model recipe, invokes evaluation, and packages results.
 ### 6.2 Model-owned behavior
 
 A model owns all internal training decisions. For example, an EveryQuery model may use
-`meds-task-generation` Python primitives to generate millions of scattered pretraining queries, but
+`meds-random-task-sampler` Python primitives to generate millions of scattered pretraining queries, but
 that operation occurs inside the model's training command and is not a direct MEDS-DEV task stage.
 
 ### 6.3 Evaluation-owned behavior
@@ -253,7 +253,7 @@ An illustrative resolved `manifest.yaml` is:
 ```yaml
 schema_version: 1
 generator:
-  package: meds-task-generation
+  package: meds-random-task-sampler
   version: 0.1.0
 seed: 1
 
@@ -431,7 +431,7 @@ them, rather than maintained as independent counters that can drift.
 The first CLI should be a single end-to-end command:
 
 ```bash
-meds-task-generation generate \
+meds-random-task-sampler generate \
 	data_dir="$MEDS_DATASET" \
 	config=collection.yaml \
 	output_dir="$TASK_COLLECTION"
@@ -440,8 +440,8 @@ meds-task-generation generate \
 Useful inspection commands may follow:
 
 ```bash
-meds-task-generation validate collection_dir="$TASK_COLLECTION"
-meds-task-generation summarize collection_dir="$TASK_COLLECTION"
+meds-random-task-sampler validate collection_dir="$TASK_COLLECTION"
+meds-random-task-sampler summarize collection_dir="$TASK_COLLECTION"
 ```
 
 The initial CLI should avoid exposing pipeline-internal stages as separate user-facing commands.
@@ -466,7 +466,7 @@ labeling should be public only when they have stable schemas and deterministic c
 Following the MHAL template:
 
 ```text
-meds-task-generation/
+meds-random-task-sampler/
 |-- .github/
 |-- AGENTS.md
 |-- CONTRIBUTORS.md
@@ -474,7 +474,7 @@ meds-task-generation/
 |-- README.md
 |-- pyproject.toml
 |-- src/
-|   `-- meds_task_generation/
+|   `-- meds_random_task_sampler/
 |       |-- __init__.py
 |       |-- __main__.py
 |       |-- cli.py
@@ -628,7 +628,7 @@ currently does.”
 
 The following decisions are considered part of the initial project direction:
 
-- The repository and package are named `meds-task-generation` and `meds_task_generation`.
+- The repository and package are named `meds-random-task-sampler` and `meds_random_task_sampler`.
 - The repository is bootstrapped from MHAL-template.
 - The package is model-independent.
 - MEDS-DEV directly invokes fixed benchmark collection generation, not model-specific pretraining

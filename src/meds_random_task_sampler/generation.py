@@ -14,7 +14,7 @@ import polars as pl
 import yaml
 
 if TYPE_CHECKING:
-    from meds_task_generation.manifest import CollectionConfig
+    from meds_random_task_sampler.manifest import CollectionConfig
 
 LABEL_COLUMNS = [
     "subject_id",
@@ -201,7 +201,7 @@ def _label_split(
 
 def _package_version() -> str:
     try:
-        return version("meds-task-generation")
+        return version("meds-random-task-sampler")
     except PackageNotFoundError:
         return "0+unknown"
 
@@ -349,7 +349,7 @@ def generate_collection(
     _write_summary(all_labels, tasks_df, cfg.splits, output_dir)
     manifest = {
         "schema_version": 1,
-        "generator": {"package": "meds-task-generation", "version": _package_version()},
+        "generator": {"package": "meds-random-task-sampler", "version": _package_version()},
         "created_at": datetime.now(UTC).isoformat(),
         "collection": {"name": cfg.name, "description": cfg.description},
         "seed": cfg.seed,

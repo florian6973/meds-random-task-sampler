@@ -1,4 +1,4 @@
-# MEDS Task Generation
+# MEDS Random Task Sampler
 
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -17,7 +17,7 @@ uses `uv`:
 
 ```bash
 uv sync --group dev
-uv run meds-task-generation generate \
+uv run meds-random-task-sampler generate \
 	--data-dir /path/to/MEDS \
 	--config collection.yaml \
 	--output-dir generated_collection
@@ -63,9 +63,9 @@ output:
 ## Commands
 
 ```bash
-meds-task-generation generate --data-dir MEDS --config collection.yaml --output-dir collection
-meds-task-generation validate --collection-dir collection
-meds-task-generation summarize --collection-dir collection
+meds-random-task-sampler generate --data-dir MEDS --config collection.yaml --output-dir collection
+meds-random-task-sampler validate --collection-dir collection
+meds-random-task-sampler summarize --collection-dir collection
 ```
 
 ## Public MIMIC-IV demo
@@ -74,11 +74,11 @@ Build the demo with MEDS-DEV, then generate and validate the included six-task c
 
 ```bash
 meds-dev-dataset dataset=MIMIC-IV demo=True output_dir=/tmp/mimic-iv-demo
-meds-task-generation generate \
+meds-random-task-sampler generate \
 	--data-dir /tmp/mimic-iv-demo \
 	--config examples/mimic_demo.yaml \
 	--output-dir /tmp/mimic-task-collection
-meds-task-generation validate --collection-dir /tmp/mimic-task-collection
+meds-random-task-sampler validate --collection-dir /tmp/mimic-task-collection
 ```
 
 The example uses two diagnosis codes and horizons of 7, 30, and 365 days. It is intentionally small enough

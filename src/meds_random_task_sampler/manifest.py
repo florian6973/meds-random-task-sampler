@@ -1,4 +1,4 @@
-"""Configuration parsing and stable task identity."""
+"""Parse sampler configuration and construct stable task identities."""
 
 from __future__ import annotations
 

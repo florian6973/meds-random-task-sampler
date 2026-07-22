@@ -1,4 +1,4 @@
-"""Validation for generated collection artifacts."""
+"""Validate generated random-task collection artifacts."""
 
 from pathlib import Path
 

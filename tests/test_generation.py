@@ -6,7 +6,7 @@ from pathlib import Path
 import polars as pl
 import yaml
 
-from meds_task_generation import generate_collection, load_collection_config, validate_collection
+from meds_random_task_sampler import generate_collection, load_collection_config, validate_collection
 
 
 def _write_dataset(root: Path) -> None:

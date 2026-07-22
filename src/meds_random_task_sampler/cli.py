@@ -6,13 +6,13 @@ from pathlib import Path
 
 import polars as pl
 
-from meds_task_generation.generation import generate_collection
-from meds_task_generation.manifest import load_collection_config
-from meds_task_generation.validation import validate_collection
+from meds_random_task_sampler.generation import generate_collection
+from meds_random_task_sampler.manifest import load_collection_config
+from meds_random_task_sampler.validation import validate_collection
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="meds-task-generation")
+    parser = argparse.ArgumentParser(prog="meds-random-task-sampler")
     subparsers = parser.add_subparsers(dest="command", required=True)
     generate = subparsers.add_parser("generate", help="Generate a task collection")
     generate.add_argument("--data-dir", required=True, type=Path)

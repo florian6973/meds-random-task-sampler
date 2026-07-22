@@ -121,7 +121,7 @@ wheels = [
 ]
 
 [[package]]
-name = "meds-task-generation"
+name = "meds-random-task-sampler"
 source = { editable = "." }
 dependencies = [
     { name = "polars" },

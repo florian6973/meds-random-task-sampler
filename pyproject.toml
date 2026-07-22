@@ -3,7 +3,7 @@ requires = ["setuptools>=80.9.0", "setuptools-scm>=9.2", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "meds-task-generation"
+name = "meds-random-task-sampler"
 dynamic = ["version"] # Makes setuptools-scm manage the version
 authors = [
   {name="florian6973"},
@@ -37,7 +37,7 @@ docs = [] # Add your documentation dependencies here (I recommend mkdocs-materia
 [project.optional-dependencies] # Add any optional dependencies here, installable via `pip install .[extra]`
 
 [project.scripts]
-meds-task-generation = "meds_task_generation.cli:main"
+meds-random-task-sampler = "meds_random_task_sampler.cli:main"
 
 [tool.pytest.ini_options] # Default pytest options
 addopts = [
@@ -53,8 +53,8 @@ markers = [] # Add any custom pytest markers here
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS"]
 
 [project.urls]
-Homepage = "https://github.com/florian6973/meds-task-generation"
-Issues = "https://github.com/florian6973/meds-task-generation/issues"
+Homepage = "https://github.com/florian6973/meds-random-task-sampler"
+Issues = "https://github.com/florian6973/meds-random-task-sampler/issues"
 
 [tool.ruff] # Ruff configuration for linting and formatting
 target-version = "py312"
@@ -89,4 +89,4 @@ extend-ignore-names = ["*MEDS*", "*NRT*", "D", "L"] # Allow common abbreviations
 convention = "google"
 
 [tool.ruff.lint.isort]
-known-first-party = ["meds_task_generation"]
+known-first-party = ["meds_random_task_sampler"]
