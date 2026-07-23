@@ -1,5 +1,11 @@
 """Model-independent EveryQuery-compatible MEDS task generation."""
 
+import os
+
+# Polars initializes its global thread pool at import time. Set the default before
+# importing any package submodule, since dense_grid and random_sample import Polars.
+os.environ.setdefault("POLARS_MAX_THREADS", "1")
+
 from meds_random_task_sampler.dense_grid import (
     TaskGridGeneratorConfig,
     build_task_grid,

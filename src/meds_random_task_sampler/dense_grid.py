@@ -34,6 +34,7 @@ from typing import Literal
 import polars as pl
 from meds import DataSchema
 
+from meds_random_task_sampler.provenance import package_version
 from meds_random_task_sampler.random_sample import (
     GenerationResult,
     QueryCodeSource,
@@ -484,6 +485,7 @@ def generate_task_grid(
     _atomic_write_json(
         {
             "schema_version": 1,
+            "package_version": package_version(),
             "sampling_strategy": "dense_grid",
             "split": split,
             "input_shard": str(input_shard),

@@ -45,6 +45,7 @@ import numpy as np
 import polars as pl
 from meds import DataSchema, death_code
 
+from meds_random_task_sampler.provenance import package_version
 from meds_random_task_sampler.schema import TaskQuerySchema, empty_task_query_df
 from meds_random_task_sampler.seeds import derive_seed
 
@@ -1728,6 +1729,7 @@ def sample_random_tasks(
     _atomic_write_json(
         {
             "schema_version": 1,
+            "package_version": package_version(),
             "sampling_strategy": "random",
             "split": split,
             **summarize_task_files(sorted((training_tasks_dir / split).glob("*.parquet"))),

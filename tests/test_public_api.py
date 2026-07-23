@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime, timedelta
+from importlib.metadata import version
 from pathlib import Path
 
 import polars as pl
@@ -97,6 +98,7 @@ def test_random_generation_end_to_end(tmp_path: Path) -> None:
     ]
     summary = json.loads((result.artifacts_dir / "_summary.json").read_text())
     assert summary["sampling_strategy"] == "random"
+    assert summary["package_version"] == version("meds-random-task-sampler")
     assert summary["rows"] == 6
     assert summary["labels_null"] + summary["labels_false"] + summary["labels_true"] == 6
 
@@ -122,6 +124,7 @@ def test_dense_grid_generation_end_to_end(tmp_path: Path) -> None:
     assert unique.height <= 4
     summary = json.loads((result.artifacts_dir / "0.json").read_text())
     assert summary["sampling_strategy"] == "dense_grid"
+    assert summary["package_version"] == version("meds-random-task-sampler")
     assert summary["rows"] == labels.height
     assert summary["labels_null"] == 0
 
