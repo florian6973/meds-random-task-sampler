@@ -42,6 +42,7 @@ from meds_random_task_sampler.random_sample import (
     _atomic_write_parquet,
     _read_event_shard,
     _require_path_arg,
+    _split_shards,
     evaluate_index_df,
     read_query_codes,
     summarize_task_files,
@@ -94,6 +95,11 @@ class TaskGridGeneratorConfig:
             raise ValueError("subject_subsample_fraction must be in (0, 1] or None")
         if self.censored_rows not in ("keep", "drop"):
             raise ValueError("censored_rows must be 'keep' or 'drop'")
+
+
+def discover_shards(data_dir: str | Path, split: str) -> list[str]:
+    """Discover every MEDS parquet shard for ``split`` in deterministic order."""
+    return _split_shards(_require_path_arg(data_dir, "data_dir"), split)
 
 
 # ---------------------------------------------------------------------------
@@ -494,3 +500,50 @@ def generate_task_grid(
         summary_dir / f"{input_shard}.json",
     )
     return GenerationResult(final.parent, summary_dir, rows, 1)
+
+
+def generate_task_grids(
+    data_dir: str | Path,
+    output_dir: str | Path,
+    split: str,
+    config: TaskGridGeneratorConfig,
+    *,
+    overwrite: bool = False,
+) -> GenerationResult:
+    """Discover and generate every dense task-grid shard for a split.
+
+    Per-shard generation, seed derivation, output paths, and resume behavior are
+    identical to calling :func:`generate_task_grid` exhaustively in sorted shard
+    order.
+    """
+    source = _require_path_arg(data_dir, "data_dir")
+    output = _require_path_arg(output_dir, "output_dir")
+    shards = discover_shards(source, split)
+
+    unique_output = output.parent / f"{output.name}_unique"
+    for previous_dir in (output / split, unique_output / split):
+        stale = sorted(path.name for path in previous_dir.glob("*.parquet") if path.stem not in shards)
+        if stale:
+            logger.warning(
+                "Outputs in %s match no discovered shard and will be neither rewritten nor "
+                "removed (downstream consumers may read every parquet in this directory): %s",
+                previous_dir,
+                stale,
+            )
+
+    rows = 0
+    artifacts_dir: Path | None = None
+    output_split_dir = output / split
+    for shard in shards:
+        result = generate_task_grid(
+            data_dir=source,
+            output_dir=output,
+            split=split,
+            input_shard=shard,
+            config=config,
+            overwrite=overwrite,
+        )
+        rows += result.rows
+        artifacts_dir = result.artifacts_dir
+
+    return GenerationResult(output_split_dir, artifacts_dir, rows, len(shards))

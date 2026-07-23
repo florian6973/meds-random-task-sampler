@@ -1058,10 +1058,14 @@ def _read_prediction_time_shard(file_path: str | Path, shard: str) -> pl.DataFra
 def _split_shards(path_to_data: Path, split: str) -> list[str]:
     """Discover shard names for a split: the parquet file stems under ``path_to_data/data/{split}``.
 
-    Sorted for deterministic iteration order.
+    Sorted for deterministic iteration order. Raises ``FileNotFoundError`` if the
+    split has no shards, so no caller can silently process an empty split.
     """
     split_dir = path_to_data / "data" / split
-    return sorted(p.stem for p in split_dir.glob("*.parquet"))
+    shards = sorted(p.stem for p in split_dir.glob("*.parquet"))
+    if not shards:
+        raise FileNotFoundError(f"No shards found under {split_dir}; expected *.parquet files.")
+    return shards
 
 
 def _input_manifest(path_to_data: Path, split: str) -> list[dict[str, int | str]]:

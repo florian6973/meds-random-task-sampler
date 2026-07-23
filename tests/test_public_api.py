@@ -12,7 +12,9 @@ from meds_random_task_sampler import (
     RandomTaskSamplerConfig,
     TaskGridGeneratorConfig,
     TaskQuerySchema,
+    discover_shards,
     generate_task_grid,
+    generate_task_grids,
     read_query_codes,
     sample_random_tasks,
 )
@@ -34,6 +36,12 @@ def _write_dataset(root: Path, split: str = "train") -> None:
     fp = root / "data" / split / "0.parquet"
     fp.parent.mkdir(parents=True)
     pl.DataFrame(rows).write_parquet(fp)
+
+
+def _add_second_shard(root: Path, split: str) -> None:
+    """Add a second shard with a disjoint subject."""
+    source = pl.read_parquet(root / "data" / split / "0.parquet")
+    source.with_columns(pl.lit(3).alias("subject_id")).write_parquet(root / "data" / split / "1.parquet")
 
 
 def test_query_code_resolution_owns_all_sources(tmp_path: Path) -> None:
@@ -144,3 +152,53 @@ def test_dense_grid_can_keep_censored_rows(tmp_path: Path) -> None:
     labels = pl.read_parquet(result.output_dir / "0.parquet")
     assert labels.height == 4
     assert labels[TaskQuerySchema.boolean_value_name].null_count() == 4
+
+
+def test_dense_grid_discovers_and_generates_every_shard(tmp_path: Path) -> None:
+    """Dataset-level generation matches an exhaustive sorted shard sweep."""
+    data_dir = tmp_path / "meds"
+    _write_dataset(data_dir, "held_out")
+    _add_second_shard(data_dir, "held_out")
+    config = TaskGridGeneratorConfig(2, 1, ["TARGET"], [1], censored_rows="drop")
+
+    assert discover_shards(data_dir, "held_out") == ["0", "1"]
+    result = generate_task_grids(data_dir, tmp_path / "grid", "held_out", config)
+
+    outputs = sorted(path.stem for path in result.output_dir.glob("*.parquet"))
+    assert outputs == ["0", "1"]
+    assert result.shards == 2
+    assert result.rows == sum(
+        pl.read_parquet(result.output_dir / f"{shard}.parquet").height for shard in outputs
+    )
+
+
+def test_dense_grid_discovery_rejects_empty_split(tmp_path: Path) -> None:
+    """Dataset-level generation cannot silently succeed without input shards."""
+    split_dir = tmp_path / "meds" / "data" / "held_out"
+    split_dir.mkdir(parents=True)
+    with pytest.raises(FileNotFoundError, match="No shards found"):
+        generate_task_grids(
+            tmp_path / "meds",
+            tmp_path / "grid",
+            "held_out",
+            TaskGridGeneratorConfig(1, 1, ["TARGET"], [1]),
+        )
+
+
+def test_dense_grid_discovery_warns_about_orphan_outputs(tmp_path: Path, caplog) -> None:
+    """Outputs with no discovered input shard are retained but reported."""
+    data_dir = tmp_path / "meds"
+    _write_dataset(data_dir, "held_out")
+    orphan = tmp_path / "grid" / "held_out" / "orphan.parquet"
+    orphan.parent.mkdir(parents=True)
+    pl.DataFrame({"sentinel": [1]}).write_parquet(orphan)
+
+    generate_task_grids(
+        data_dir,
+        tmp_path / "grid",
+        "held_out",
+        TaskGridGeneratorConfig(1, 1, ["TARGET"], [1]),
+    )
+
+    assert orphan.exists()
+    assert "match no discovered shard" in caplog.text
