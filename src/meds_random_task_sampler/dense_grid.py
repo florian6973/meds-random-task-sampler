@@ -34,7 +34,6 @@ from typing import Literal
 import polars as pl
 from meds import DataSchema
 
-from meds_random_task_sampler.provenance import package_version
 from meds_random_task_sampler.random_sample import (
     GenerationResult,
     QueryCodeSource,
@@ -44,6 +43,7 @@ from meds_random_task_sampler.random_sample import (
     _require_path_arg,
     _split_shards,
     evaluate_index_df,
+    package_version,
     read_query_codes,
     summarize_task_files,
 )

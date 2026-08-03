@@ -38,6 +38,7 @@ import shutil
 import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
+from importlib.metadata import version
 from pathlib import Path
 from typing import TypeAlias
 
@@ -45,7 +46,6 @@ import numpy as np
 import polars as pl
 from meds import DataSchema, death_code
 
-from meds_random_task_sampler.provenance import package_version
 from meds_random_task_sampler.schema import TaskQuerySchema, empty_task_query_df
 from meds_random_task_sampler.seeds import derive_seed
 
@@ -1564,6 +1564,15 @@ def _log_coverage_summary(out_files: list[Path], written: int) -> None:
         f"{n_false:,}",
         f"{n_true:,}",
     )
+
+
+def package_version() -> str:
+    """Return the installed sampler version, stamped into every summary this package writes.
+
+    A generated dataset is only reproducible if it records which sampler produced it: the summary
+    JSON is the one place that survives alongside the parquet, and both workflows write this into it.
+    """
+    return version("meds-random-task-sampler")
 
 
 def summarize_task_files(out_files: list[Path]) -> dict[str, int]:
