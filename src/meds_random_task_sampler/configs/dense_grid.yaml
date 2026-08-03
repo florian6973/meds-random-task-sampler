@@ -1,0 +1,59 @@
+# Dense task grids: sample prediction times per subject and cross them with an explicit
+# `code x duration` grid.  Run with:
+#
+#   meds-generate-task-grid data_dir=/path/to/MEDS out_dir=/path/to/task_grid split=held_out \
+#       grid.query_codes=[CODE_A,CODE_B]
+#
+# Every key below can be overridden on the command line (`grid.durations=[30,365]`).
+defaults:
+  - grid: default
+  - _self_
+
+# MEDS dataset root.  Event shards are read from `${data_dir}/data/${split}/*.parquet` and, when
+# `grid.query_codes` points here, the code universe from `${data_dir}/metadata/codes.parquet`.
+data_dir: ???
+
+# Final-output root: grid rows land in `${out_dir}/${split}/{shard}.parquet`.  Unique prediction
+# times use the sibling `${out_dir}_unique/` root and per-shard summaries `${out_dir}_summary/`.
+out_dir: ???
+
+# Which MEDS split to build the grid over.
+split: held_out
+
+# Which input shard to build.  `null` builds every shard of the split in sorted order; set it to fan
+# the work out across jobs, either one call per shard or as a sweep:
+#
+#   meds-generate-task-grid --multirun input_shard=0,1,2 ...
+input_shard: null
+
+# Seeds the per-subject prediction-time draw, which is deterministic in (seed, split, input_shard).
+# The task axis needs no randomness: it is fully specified by (query_codes x durations).
+seed: 1
+
+# Redo shards whose outputs already exist instead of skipping them.
+overwrite: false
+
+# Where Hydra writes its run log and the resolved-config snapshot (`.hydra/`) — a record of exactly
+# which config produced a dataset, kept outside both data roots so those stay parquet-only.  The
+# `oc.select` fallback matters only when `out_dir` is unset: Hydra resolves this before the job
+# starts, so a plain `${out_dir}_logs` would fail there with a stack trace instead of the clean
+# "Missing mandatory value" the run itself reports.
+log_dir: ${oc.select:out_dir,outputs}_logs
+
+hydra:
+  run:
+    dir: ${log_dir}/dense_grid
+  sweep:
+    dir: ${log_dir}/dense_grid/multirun
+    subdir: ${hydra.job.num}
+  job:
+    # Never chdir into the run directory: relative `data_dir=` / `out_dir=` arguments must mean what
+    # they meant in the shell that launched the command.
+    chdir: false
+  help:
+    app_name: meds-generate-task-grid
+    header: |-
+      ${hydra.help.app_name}: build a dense code x duration task grid at sampled prediction times.
+
+      Usage:
+        ${hydra.help.app_name} data_dir=/path/to/MEDS out_dir=/path/to/task_grid [key=value ...]
