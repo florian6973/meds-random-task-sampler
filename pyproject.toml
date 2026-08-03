@@ -18,12 +18,20 @@ classifiers = [
 ]
 dependencies = [
   "flexible-schema",
+  "hydra-core>=1.3,<2",
   "meds>=0.4,<0.5",
   "numpy>=2,<3",
+  # Imported directly by the CLI (hydra-core pulls it in too, but a direct import is a direct
+  # dependency: the core stays Hydra-free, so only `cli.py` touches either.)
+  "omegaconf>=2.3,<3",
   "polars>=1.35,<2",
   "pyarrow>=17,<26",
   "pyyaml>=6,<7",
 ]
+
+[project.scripts]
+meds-sample-random-tasks = "meds_random_task_sampler.cli:sample_random_tasks_main"
+meds-generate-task-grid = "meds_random_task_sampler.cli:generate_task_grid_main"
 
 [dependency-groups]
 dev = [
@@ -40,6 +48,9 @@ docs = [] # Add your documentation dependencies here (I recommend mkdocs-materia
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data] # The Hydra configs the two console scripts compose against
+meds_random_task_sampler = ["configs/**/*.yaml"]
 
 [project.optional-dependencies] # Add any optional dependencies here, installable via `pip install .[extra]`
 

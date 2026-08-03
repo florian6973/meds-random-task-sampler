@@ -1,0 +1,10 @@
+# A deliberately tiny draw: enough to prove a dataset, a path layout, or a downstream reader works
+# end to end in seconds, and far too small to train on.  Everything not restated here comes from
+# `sampling/default.yaml`.
+defaults:
+  - default
+
+num_queries: 8
+min_prediction_times_per_subject: 1
+max_duration: 30.0
+max_workers: 1

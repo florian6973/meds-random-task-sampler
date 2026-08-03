@@ -1,0 +1,6 @@
+# Reproduces the EveryQuery evaluation grid: censored rows are dropped, so every remaining label is
+# a definite true/false.  Everything not restated here comes from `grid/default.yaml`.
+defaults:
+  - default
+
+censored_rows: drop

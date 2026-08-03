@@ -1,0 +1,28 @@
+# EveryQuery-derived defaults for the random sampler.  Every key in this group is a
+# `RandomTaskSamplerConfig` field — `seed` excepted, which is shared with the grid workflow and so
+# lives at the top level.  Swap the whole group with `sampling=smoke`, or override one key with
+# `sampling.num_queries=64`.
+
+# How many (code, duration_days) query specifications to draw.
+num_queries: 1024
+
+# How many patient contexts each query is paired with.  Total rows = num_queries * this.
+num_contexts_per_query: 1
+
+# Subjects with fewer eligible prediction times than this are never sampled.
+min_prediction_times_per_subject: 50
+
+# The code universe queries are drawn from.  Accepts an explicit list
+# (`sampling.query_codes=[ICD//A,ICD//B]`), a path to a codes.parquet or YAML file, or a MEDS root
+# whose `metadata/codes.parquet` holds the full vocabulary — which is what the default resolves to.
+query_codes: ${data_dir}
+
+# Prediction-window bounds in days.  Floats: sampled durations are not rounded to whole days.
+min_duration: 1.0
+max_duration: 731.0
+
+# `log-uniform` (preferentially samples shorter windows) or `uniform`.
+duration_distribution: log-uniform
+
+# Labeling worker processes, one shard each.  `null` picks a count from the machine's CPUs.
+max_workers: null

@@ -1,0 +1,54 @@
+# Random query-task sampling: draw random (code, duration) queries, pair each with random patient
+# contexts, and label future occurrence.  Run with:
+#
+#   meds-sample-random-tasks data_dir=/path/to/MEDS out_dir=/path/to/random_tasks
+#
+# Every key below can be overridden on the command line (`split=tuning sampling.num_queries=64`).
+defaults:
+  - sampling: default
+  - _self_
+
+# MEDS dataset root.  Event shards are read from `${data_dir}/data/${split}/*.parquet` and, when
+# `sampling.query_codes` points here, the code universe from `${data_dir}/metadata/codes.parquet`.
+data_dir: ???
+
+# Final-output root: rows land in `${out_dir}/${split}/{shard}.parquet`.  Restartable intermediates
+# go to the sibling `${out_dir}_artifacts/${split}/`, which is never nested inside this root, so
+# either tree can be deleted without touching the other.
+out_dir: ???
+
+# Which MEDS split to sample from.
+split: train
+
+# Seeds every draw.  The query and context axes derive independent streams from it, so both
+# reproduce exactly for a fixed seed.
+seed: 1
+
+# Redo stages whose outputs already exist instead of skipping them.  Leave false to resume an
+# interrupted run: a present `{shard}.parquet` is always complete.
+overwrite: false
+
+# Where Hydra writes its run log and the resolved-config snapshot (`.hydra/`) — a record of exactly
+# which config produced a dataset, kept outside both data roots so those stay parquet-only.  The
+# `oc.select` fallback matters only when `out_dir` is unset: Hydra resolves this before the job
+# starts, so a plain `${out_dir}_logs` would fail there with a stack trace instead of the clean
+# "Missing mandatory value" the run itself reports.
+log_dir: ${oc.select:out_dir,outputs}_logs
+
+hydra:
+  run:
+    dir: ${log_dir}/random_sample
+  sweep:
+    dir: ${log_dir}/random_sample/multirun
+    subdir: ${hydra.job.num}
+  job:
+    # Never chdir into the run directory: relative `data_dir=` / `out_dir=` arguments must mean what
+    # they meant in the shell that launched the command.
+    chdir: false
+  help:
+    app_name: meds-sample-random-tasks
+    header: |-
+      ${hydra.help.app_name}: sample random (code, duration) query tasks over random patient contexts.
+
+      Usage:
+        ${hydra.help.app_name} data_dir=/path/to/MEDS out_dir=/path/to/random_tasks [key=value ...]

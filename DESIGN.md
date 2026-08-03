@@ -45,9 +45,11 @@ EveryQuery currently owns infrastructure that is useful beyond the EveryQuery mo
 - constructing dense evaluation grids over fixed `(code, duration)` tasks;
 - filtering censored evaluation rows and optionally writing unique prediction times.
 
-None of these operations requires an EveryQuery neural network, PyTorch, Lightning, Hydra, or a learned query
+None of these operations requires an EveryQuery neural network, PyTorch, Lightning, or a learned query
 embedding. Moving them to a small package lets another model consume the same random training distribution
-without importing EveryQuery's model stack.
+without importing EveryQuery's model stack. The sampling core needs no Hydra either: Hydra enters only through
+the package's own command-line layer (section 8), which converts a composed config into the plain dataclasses
+below and is the single module allowed to import it.
 
 EveryQuery should retain thin adapters so existing `EQ_generate_training_tasks` and
 `EQ_generate_evaluation_tasks` commands continue to work.
@@ -148,7 +150,8 @@ The package will not initially:
 
 - train or load EveryQuery;
 - depend on PyTorch, Lightning, Transformers, or Weights & Biases;
-- own Hydra configuration;
+- own EveryQuery's Hydra configuration, its key names, or its adapters — the package ships its own two-command
+    CLI and config groups instead (section 8);
 - tensorize MEDS data;
 - create patient train/tuning/test assignments;
 - calculate AUROC or other metrics;
@@ -182,7 +185,9 @@ The package owns:
 - death truncation and censoring semantics;
 - atomic writes and cache validation;
 - row-count and schema validation;
-- provenance and summary metadata.
+- provenance and summary metadata;
+- the `meds-sample-random-tasks` and `meds-generate-task-grid` commands, their Hydra config groups, and the
+    conversion from a composed config into the core dataclasses.
 
 ### 6.2 EveryQuery-owned
 
@@ -206,8 +211,9 @@ the MEDS dataset's existing splits.
 
 ## 7. Public API
 
-The core must not accept Hydra or OmegaConf objects. Random sampling and dense-grid generation have separate
-top-level APIs:
+The core must not accept Hydra or OmegaConf objects: `meds_random_task_sampler.cli` is the only module that
+imports either, and it hands the core plain dataclasses, lists, and paths. Random sampling and dense-grid
+generation have separate top-level APIs:
 
 ```python
 from pathlib import Path
@@ -287,30 +293,41 @@ all behavior inside the CLI.
 Core configuration uses frozen dataclasses or an equivalently strict typed model. It must reject Boolean values
 where integers are expected and reject non-finite numeric bounds.
 
+Those dataclasses are also the package's command-line surface. `src/meds_random_task_sampler/configs/` holds one
+Hydra root config per workflow — `random_sample.yaml` and `dense_grid.yaml` — each with a defaults list selecting
+one option from its workflow's config group. A group holds exactly the fields of its dataclass, so composition is
+a keyword splat and a key that drifts from the dataclass fails at the boundary, naming itself. Path roots, split,
+seed, and `overwrite` stay at the top level because both workflows share them.
+
+Hydra is confined to `cli.py`: it composes the config, resolves interpolations, converts every container to a
+builtin, and calls the same public API a Python caller would. Nothing below that module can tell it was invoked
+from a command line.
+
 ### 8.1 Training configuration
 
+`meds-sample-random-tasks`, composed from `random_sample.yaml` and the `sampling` group:
+
 ```yaml
-schema_version: 1
-seed: 1
+defaults:
+  - sampling: default # or `smoke`
+  - _self_
+
+data_dir: ??? # MEDS root; also where `metadata/codes.parquet` is read from
+out_dir: ??? # rows land in `${out_dir}/${split}/{shard}.parquet`
 split: train
+seed: 1
+overwrite: false
+log_dir: ${oc.select:out_dir,outputs}_logs # Hydra's own run log; never a data root
 
 sampling:
   num_queries: 1024
   num_contexts_per_query: 1
   min_prediction_times_per_subject: 50
-
-query_distribution:
-  codes:
-    source: meds_metadata
-    path: /path/to/cohort
-  code_distribution: uniform
+  query_codes: ${data_dir}
+  min_duration: 1.0
+  max_duration: 731.0
   duration_distribution: log-uniform
-  min_duration_days: 1.0
-  max_duration_days: 731.0
-
-execution:
   max_workers:
-  overwrite: false
 ```
 
 The package resolves `query_codes` before sampling. It accepts an ordinary Python sequence, a YAML or Parquet
@@ -320,64 +337,68 @@ Explicit sequences preserve order while removing duplicates. File-derived codes 
 The first EveryQuery training adapter maps its existing Hydra keys onto this model. Renaming EQ's CLI keys is
 not part of the first integration PR. The semantic mapping is nearly one-to-one:
 
-| EveryQuery Hydra key               | Package field                               | Translation               |
+| EveryQuery Hydra key               | Package key                                 | Translation               |
 | ---------------------------------- | ------------------------------------------- | ------------------------- |
 | `num_queries`                      | `sampling.num_queries`                      | none                      |
 | `num_contexts_per_query`           | `sampling.num_contexts_per_query`           | none                      |
 | `min_prediction_times_per_subject` | `sampling.min_prediction_times_per_subject` | none                      |
-| `query_codes`                      | `query_distribution.codes`                  | convert `ListConfig` only |
-| `min_duration`                     | `query_distribution.min_duration_days`      | float conversion          |
-| `max_duration`                     | `query_distribution.max_duration_days`      | float conversion          |
-| `duration_distribution`            | `query_distribution.duration_distribution`  | none                      |
-| `data_dir`                         | `sample_random_tasks(data_dir=...)`         | path conversion           |
-| `out_dir`                          | `sample_random_tasks(output_dir=...)`       | path conversion           |
-| `split`                            | `sample_random_tasks(split=...)`            | none                      |
+| `query_codes`                      | `sampling.query_codes`                      | convert `ListConfig` only |
+| `min_duration`                     | `sampling.min_duration`                     | float conversion          |
+| `max_duration`                     | `sampling.max_duration`                     | float conversion          |
+| `duration_distribution`            | `sampling.duration_distribution`            | none                      |
+| `data_dir`                         | `data_dir`                                  | path conversion           |
+| `out_dir`                          | `out_dir`                                   | path conversion           |
+| `split`                            | `split`                                     | none                      |
 | `seed`                             | `seed`                                      | none                      |
-| `max_workers`                      | `execution.max_workers`                     | none                      |
-| `overwrite`                        | `execution.overwrite`                       | none                      |
+| `max_workers`                      | `sampling.max_workers`                      | none                      |
+| `overwrite`                        | `overwrite`                                 | none                      |
 
-The nesting is an authored-package organization choice, not a semantic change. If it creates needless adapter or
-CLI complexity, version 0.1 may instead expose a flat `RandomTaskSamplerConfig` with the exact EQ field names.
-Hydra remains outside the package either way.
+Only the grouping differs, and only for the keys that describe the sampler rather than the run: an EQ adapter
+copies values across without renaming or reinterpreting any of them.
 
 ### 8.2 Dense-grid configuration
 
-```yaml
-schema_version: 1
-seed: 1
-split: held_out
-input_shard: '0'
+`meds-generate-task-grid`, composed from `dense_grid.yaml` and the `grid` group:
 
-evaluation:
+```yaml
+defaults:
+  - grid: default # or `everyquery_eval`, which drops censored rows
+  - _self_
+
+data_dir: ???
+out_dir: ??? # `${out_dir}_unique/` and `${out_dir}_summary/` are siblings of this root
+split: held_out
+input_shard: # null builds every shard of the split; name one to fan the work out across jobs
+seed: 1
+overwrite: false
+log_dir: ${oc.select:out_dir,outputs}_logs
+
+grid:
   prediction_times_per_subject: 1
   min_context_per_subject: 50
-  query_codes:
-    source: meds_metadata
-    path: /path/to/cohort
+  query_codes: ${data_dir}
   durations: [30, 90, 180, 365, 731]
   subject_subsample_fraction:
   write_unique_prediction_times: true
   censored_rows: keep
-
-execution:
-  overwrite: false
 ```
 
-The evaluation adapter is also nearly one-to-one. It passes `input_shard` explicitly because EQ parallelizes
-evaluation through a Hydra shard sweep, unlike the training driver, which fans out labeling internally.
+The evaluation adapter is also nearly one-to-one. `input_shard` stays an explicit key because EQ parallelizes
+evaluation through a Hydra shard sweep, unlike the training driver, which fans out labeling internally; leaving
+it null asks a single process to build every shard in sorted order.
 
-| EveryQuery Hydra key            | Package field                              | Translation               |
-| ------------------------------- | ------------------------------------------ | ------------------------- |
-| `prediction_times_per_subject`  | `evaluation.prediction_times_per_subject`  | none                      |
-| `min_context_per_subject`       | `evaluation.min_context_per_subject`       | none                      |
-| `query_codes`                   | `evaluation.query_codes`                   | convert `ListConfig` only |
-| `durations`                     | `evaluation.durations`                     | tuple conversion          |
-| `subject_subsample_fraction`    | `evaluation.subject_subsample_fraction`    | none                      |
-| `write_unique_prediction_times` | `evaluation.write_unique_prediction_times` | none                      |
-| `data_dir`, `out_dir`, `split`  | `generate_task_grid(...)` arguments        | path conversion           |
-| `input_shard`                   | `generate_task_grid(input_shard=...)`      | string conversion         |
-| `seed`                          | `seed`                                     | none                      |
-| `overwrite`                     | `execution.overwrite`                      | none                      |
+| EveryQuery Hydra key            | Package key                          | Translation               |
+| ------------------------------- | ------------------------------------ | ------------------------- |
+| `prediction_times_per_subject`  | `grid.prediction_times_per_subject`  | none                      |
+| `min_context_per_subject`       | `grid.min_context_per_subject`       | none                      |
+| `query_codes`                   | `grid.query_codes`                   | convert `ListConfig` only |
+| `durations`                     | `grid.durations`                     | tuple conversion          |
+| `subject_subsample_fraction`    | `grid.subject_subsample_fraction`    | none                      |
+| `write_unique_prediction_times` | `grid.write_unique_prediction_times` | none                      |
+| `data_dir`, `out_dir`, `split`  | `data_dir`, `out_dir`, `split`       | path conversion           |
+| `input_shard`                   | `input_shard`                        | string conversion         |
+| `seed`                          | `seed`                               | none                      |
+| `overwrite`                     | `overwrite`                          | none                      |
 
 Both public configurations reject a zero work budget. Training requires `num_queries > 0` and
 `num_contexts_per_query > 0`; evaluation requires `prediction_times_per_subject > 0`, at least one resolved code,
@@ -792,9 +813,10 @@ fixture shard. The EveryQuery integration PR is blocked until both equivalence t
 5. Implement Stage 0 prediction-time maps and cache contract.
 6. Implement Stage 3 pairing and per-shard index resolution.
 7. Implement atomic I/O, Stage 4 workers, restartability, summaries, and validation.
-8. Add a package CLI that does not use Hydra.
+8. Add the `meds-sample-random-tasks` command and the `sampling` config group.
 9. Implement evaluation-time sampling, subject subsampling, and dense-grid construction.
-10. Add evaluation orchestration, censor filtering, unique-time output, and CLI.
+10. Add evaluation orchestration, censor filtering, unique-time output, and the `meds-generate-task-grid`
+    command with its `grid` config group.
 11. Run exact training and evaluation equivalence against the pinned EQ checkout.
 12. Tag a package release or pin an immutable package commit.
 13. Open the thin-adapter EveryQuery PR.
@@ -828,9 +850,9 @@ unique codes and sorts them so the same RNG code index always maps to the same c
 deterministic compatibility.
 
 The package resolves all three forms. It owns YAML, Parquet, and MEDS-root resolution and deterministic ordering.
-The EQ adapters convert Hydra `ListConfig` objects to ordinary lists and otherwise pass paths through. The
-package does not import Hydra or OmegaConf. Tests pin explicit-list order preservation, file-based sorting,
-duplicate removal, empty input, non-string values, and missing `code` columns.
+Both the EQ adapters and this package's own CLI convert `ListConfig` objects to ordinary lists and otherwise
+pass paths through; the resolver itself never sees an OmegaConf container. Tests pin explicit-list order
+preservation, file-based sorting, duplicate removal, empty input, non-string values, and missing `code` columns.
 
 ### 18.4 Resolved: cheap file-manifest cache validation
 

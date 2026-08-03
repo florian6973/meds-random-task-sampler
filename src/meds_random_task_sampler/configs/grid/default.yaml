@@ -1,0 +1,33 @@
+# Defaults for the dense `code x duration` grid.  Every key in this group is a
+# `TaskGridGeneratorConfig` field — `seed` excepted, which is shared with the random-sample workflow
+# and so lives at the top level.  Swap the whole group with `grid=everyquery_eval`, or override one
+# key with `grid.durations=[30,365]`.
+
+# How many prediction times to sample per subject.  Grid rows per subject =
+# this * len(query_codes) * len(durations).
+prediction_times_per_subject: 1
+
+# A time is only eligible once the subject has accumulated at least this many prior events.
+min_context_per_subject: 50
+
+# The codes to build the grid over.  Accepts an explicit list (`grid.query_codes=[ICD//A,ICD//B]`), a
+# path to a codes.parquet or YAML file, or a MEDS root whose `metadata/codes.parquet` holds the full
+# vocabulary — which is what the default resolves to.  A grid is dense, so a large universe here
+# multiplies the row count: prefer an explicit list unless the vocabulary is small.
+query_codes: ${data_dir}
+
+# The duration axis, in whole days.
+durations: [30, 90, 180, 365, 731]
+
+# Keep only this fraction of the split's subjects, sampled deterministically from `seed`.  `null`
+# keeps every subject.
+subject_subsample_fraction: null
+
+# Also write the distinct (subject_id, prediction_time) pairs to the `${out_dir}_unique/` root — the
+# input a downstream model needs to embed each context once rather than once per grid row.
+write_unique_prediction_times: true
+
+# `keep` retains rows whose label is null because the horizon runs past the subject's data (censored)
+# — the purpose-neutral default, since whether a censored row is usable depends on the consumer.
+# `drop` removes them.
+censored_rows: keep
