@@ -24,8 +24,8 @@ dependencies = [
   # Imported directly by the CLI (hydra-core pulls it in too, but a direct import is a direct
   # dependency: the core stays Hydra-free, so only `cli.py` touches either.)
   "omegaconf>=2.3,<3",
-  "polars>=1.35,<2",
-  "pyarrow>=17,<26",
+  "polars>=1.35,<3",
+  "pyarrow>=17,<27",
   "pyyaml>=6,<7",
 ]
 
@@ -40,7 +40,7 @@ dev = [
   # hook. Pinning it here (in addition to the pre-commit hook's
   # additional_dependencies) gives a single source of truth and keeps local
   # `uv run mdformat ...` runs consistent with CI pre-commit runs.
-  "shfmt-py==4.0.0",
+  "shfmt-py==4.2.0",
 ] # Add your development (lint, test) dependencies here
 docs = [] # Add your documentation dependencies here (I recommend mkdocs-material)
 
