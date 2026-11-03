@@ -156,7 +156,8 @@ The package will not initially:
 - create patient train/tuning/test assignments;
 - calculate AUROC or other metrics;
 - sample EveryQuery's validation tracking pairs;
-- define ACES predicates or composite clinical outcomes;
+- define ACES predicates or composite clinical outcomes (the optional zero-shot export, section 18.8, only
+    serializes each sampled single-code task as a future-only ACES config);
 - weight codes by empirical frequency;
 - support distributed multi-node labeling;
 - promise stability for artifacts explicitly marked internal.
@@ -891,6 +892,29 @@ through its adapter; other consumers may retain nullable labels with the package
 
 PyPI publication versus an immutable Git dependency is intentionally deferred. The package API and EQ
 equivalence suite must exist before selecting a release mechanism.
+
+### 18.8 Resolved: zero-shot export as future-only ACES configs
+
+Zero-shot models label generated trajectories rather than consuming labels, so they need the task definition
+in a form their labeler understands: one ACES config per task for `MEDS_trajectory_evaluation`'s
+`ZSACES_label`. An optional top-level `aces_dir` key on both commands writes those configs, a `tasks.parquet`
+manifest keyed by a stable `task_id = blake2b(query, float32 duration_days)`, and, for random samples, the
+distinct prediction times.
+
+- **No new randomness, no ACES cohort extraction.** The sampler remains the only source of randomness and of
+    ground truth. The export is a pure function of the rows (random workflow) or of the grid axes (dense
+    workflow), so reproducibility reduces to the existing determinism contract (section 14). Prediction times
+    are not re-derived from an ACES trigger: they are already event times, and the zero-shot labeler anchors on
+    each trajectory's `prediction_time`, so the trigger is the nominal `_ANY_EVENT`.
+- **Exact window.** ZSACES requires the label window strictly below the prediction-time node, which rules out
+    a window starting at the trigger. Each config therefore uses an empty open gap `(t, t + 1us)` followed by
+    a closed target `[t + 1us, t + D]`. These contain exactly the microsecond timestamps of `(t, t + D]`.
+    `D` comes from `schema.window_length_expr`, the same expression the labeling kernel uses (float32
+    arithmetic included). An end-anchored alternative (`start: end - D`) passes ZSACES validation but labels
+    boundary events incorrectly, and was rejected for that reason.
+- **Row schema unchanged.** `task_id` lives only in the manifest; rows stay EQ-compatible.
+- **Documented, not encoded:** censoring past the real record and death-as-observation (section 12) have no
+    ACES-window equivalent; determinability of a generated trajectory is the zero-shot labeler's decision.
 
 ## 19. Definition of done for the package extraction
 

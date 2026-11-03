@@ -28,7 +28,15 @@ seed: 1
 # interrupted run: a present `{shard}.parquet` is always complete.
 overwrite: false
 
-# Where Hydra writes its run log and the resolved-config snapshot (`.hydra/`) — a record of exactly
+# Optional: also export one future-only ACES task config per distinct sampled task, for labeling
+# zero-shot (generated-trajectory) predictions with `ZSACES_label` from MEDS_trajectory_evaluation.
+# Written to `${aces_dir}/${split}/`: `criteria/{task_id}.yaml`, the `tasks.parquet` manifest that maps
+# each task_id to the rows' (query, duration_days), and `prediction_times.parquet` — the distinct
+# (subject_id, prediction_time) contexts to generate trajectories from.  The export
+# is a deterministic function of the sampled rows; it draws nothing.  `null` skips it.
+aces_dir: null
+
+# Where Hydra writes its run log and the resolved-config snapshot (`.hydra/`) â€” a record of exactly
 # which config produced a dataset, kept outside both data roots so those stay parquet-only.  The
 # `oc.select` fallback matters only when `out_dir` is unset: Hydra resolves this before the job
 # starts, so a plain `${out_dir}_logs` would fail there with a stack trace instead of the clean
