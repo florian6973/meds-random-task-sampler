@@ -143,3 +143,22 @@ def empty_task_query_df() -> pl.DataFrame:
     ]
     pa_fields = [pa.field(name, getattr(TaskQuerySchema, f"{name}_dtype")) for name in field_names]
     return pl.from_arrow(pa.schema(pa_fields).empty_table())
+
+
+def window_length_expr(duration_days: str | pl.Expr = "duration_days") -> pl.Expr:
+    """Return the Polars expression turning ``duration_days`` into the labeled window's length.
+
+    This is the single definition shared by the labeling kernel and the ACES export (``aces_export``).
+    The product is evaluated in the column's own dtype, so a ``float32`` duration is multiplied in
+    ``float32`` before becoming microseconds — which is why the exported window must be computed by this
+    expression rather than from the nominal day count.
+
+    Examples:
+        >>> df = pl.DataFrame(
+        ...     {"duration_days": [30.0, 1.2345678]}, schema={"duration_days": pl.Float32}
+        ... )
+        >>> df.select(window_length_expr().alias("window"))["window"].to_list()
+        [datetime.timedelta(days=30), datetime.timedelta(days=1, seconds=20266, microseconds=656250)]
+    """
+    col = pl.col(duration_days) if isinstance(duration_days, str) else duration_days
+    return pl.duration(seconds=col * 86_400)

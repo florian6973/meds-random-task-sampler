@@ -64,6 +64,48 @@ invocation with `input_shard=0`, or sweep them in one command:
 meds-generate-task-grid --multirun input_shard=0,1,2 data_dir=/path/to/MEDS out_dir=/path/to/task_grid
 ```
 
+## Zero-shot export: future-only ACES configs
+
+Zero-shot (trajectory-generating) models are scored by generating a future from each
+`(subject_id, prediction_time)` and labeling that generated future with the task definition, usually with
+`ZSACES_label` from [MEDS_trajectory_evaluation](https://github.com/mmcdermott/MEDS_trajectory_evaluation). Set
+`aces_dir` on either command to also write one future-only ACES config per distinct sampled task:
+
+```bash
+meds-sample-random-tasks data_dir=/path/to/MEDS out_dir=/path/to/random_tasks aces_dir=/path/to/zs_tasks
+```
+
+```text
+zs_tasks/{split}/
+|-- tasks.parquet             # task_id, query, duration_days, window, criteria_fp
+|-- prediction_times.parquet  # random workflow only: contexts to generate trajectories from
+`-- criteria/{task_id}.yaml   # pass as `task.criteria_fp` to ZSACES_label
+```
+
+The dense workflow exports its full `query_codes x durations` axes (identically from every shard job); its
+generation contexts are the existing `{out_dir}_unique/` rows. `task_id` is a stable hash of
+`(query, float32 duration_days)`; join each task's zero-shot labels to the sampled rows on
+`(subject_id, prediction_time)` plus the manifest's `(query, duration_days)`.
+
+**Reproducibility.** All randomness lives in the sampler and is fixed by `seed`. The export draws nothing: it
+is a deterministic function of the sampled rows (or grid axes), so the same seed gives byte-identical configs.
+There is no need to run ACES over the real data to rebuild the cohort; the sampled rows already carry the
+prediction times and the ground-truth labels. Prediction times also do not need to line up with a special
+trigger event: they are already event timestamps, and the zero-shot labeler anchors on each trajectory's
+`prediction_time`, so the configs use a nominal `_ANY_EVENT` trigger.
+
+**Window.** Each config encodes exactly the sampler's `(t, t + D]`. ZSACES requires the label window to sit
+below the prediction-time node, so the horizon is split into an empty open gap `(t, t + 1us)` and a closed
+target `[t + 1us, t + D]`. Together these cover the same microsecond timestamps. `D` comes from the same Polars
+expression the labeling kernel uses (`window_length_expr`), including its float32 arithmetic. The tests check
+that the labeler, run on each subject's *real* future, reproduces the sampler's label on every uncensored row.
+That test runs when `MEDS_trajectory_evaluation` is installed.
+
+**Caveats.** The sampler labels a window that runs past the real record as `null` (censored), and it treats
+death inside the window as full observation (so the label is false unless the code occurred first). ACES
+windows cannot express either rule. For a generated trajectory, determinability is the zero-shot labeler's
+call, so generate past `t + D` or handle trajectories that stop early (e.g. at `MEDS_DEATH`) explicitly.
+
 ## Configuration
 
 Every setting lives in a YAML file under
@@ -80,6 +122,7 @@ the config a run would use, without running it.
 | `overwrite`   | redo work whose output already exists instead of skipping it                   |
 | `log_dir`     | where Hydra writes its run log and resolved-config snapshot; never a data root |
 | `input_shard` | dense grid only: build one named shard instead of all of them                  |
+| `aces_dir`    | optional: export zero-shot ACES task configs to `${aces_dir}/${split}/`        |
 | `sampling.*`  | the `RandomTaskSamplerConfig` fields — options: `default`, `smoke`             |
 | `grid.*`      | the `TaskGridGeneratorConfig` fields — options: `default`, `everyquery_eval`   |
 

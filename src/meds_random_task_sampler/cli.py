@@ -26,6 +26,11 @@ from typing import Any
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
+from meds_random_task_sampler.aces_export import (
+    AcesExportResult,
+    export_task_rows_to_aces,
+    write_aces_task_configs,
+)
 from meds_random_task_sampler.dense_grid import (
     TaskGridGeneratorConfig,
     generate_task_grid,
@@ -34,6 +39,7 @@ from meds_random_task_sampler.dense_grid import (
 from meds_random_task_sampler.random_sample import (
     GenerationResult,
     RandomTaskSamplerConfig,
+    read_query_codes,
     sample_random_tasks,
 )
 
@@ -154,6 +160,32 @@ def _log_result(result: GenerationResult, workflow: str) -> None:
     )
 
 
+def aces_export_dir(cfg: DictConfig) -> Path | None:
+    """Return where to export future-only ACES configs, or ``None`` when ``aces_dir`` is unset.
+
+    Exports are per split (``${aces_dir}/${split}``) because the random workflow's task set is drawn
+    from the split it samples.
+
+    Examples:
+        >>> aces_export_dir(OmegaConf.create({"aces_dir": None, "split": "train"})) is None
+        True
+        >>> aces_export_dir(OmegaConf.create({"aces_dir": "/zs", "split": "train"})).as_posix()
+        '/zs/train'
+    """
+    if cfg.get("aces_dir") is None:
+        return None
+    return Path(cfg.aces_dir) / cfg.split
+
+
+def _log_export(result: AcesExportResult) -> None:
+    logger.info(
+        "aces_export: wrote %s task config(s) to %s (manifest: %s).",
+        f"{result.n_tasks:,}",
+        result.export_dir / "criteria",
+        result.manifest_fp,
+    )
+
+
 @hydra.main(version_base="1.3", config_path=str(config_dir()), config_name="random_sample")
 def sample_random_tasks_main(cfg: DictConfig) -> None:
     """Run the random query-task sampler (``meds-sample-random-tasks``)."""
@@ -167,6 +199,8 @@ def sample_random_tasks_main(cfg: DictConfig) -> None:
         overwrite=cfg.overwrite,
     )
     _log_result(result, "random_sample")
+    if (export_dir := aces_export_dir(cfg)) is not None:
+        _log_export(export_task_rows_to_aces(out_dir, cfg.split, export_dir))
 
 
 @hydra.main(version_base="1.3", config_path=str(config_dir()), config_name="dense_grid")
@@ -184,3 +218,8 @@ def generate_task_grid_main(cfg: DictConfig) -> None:
     else:
         result = generate_task_grid(**shared, input_shard=str(cfg.input_shard), overwrite=cfg.overwrite)
     _log_result(result, "dense_grid")
+    if (export_dir := aces_export_dir(cfg)) is not None:
+        # The grid's task set is its axes, not whatever survived censor-dropping in this shard, so
+        # every shard job of a sweep writes the identical export.
+        tasks = [(code, d) for code in read_query_codes(config.query_codes) for d in config.durations]
+        _log_export(write_aces_task_configs(tasks, export_dir))

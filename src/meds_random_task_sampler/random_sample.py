@@ -46,7 +46,7 @@ import numpy as np
 import polars as pl
 from meds import DataSchema, death_code
 
-from meds_random_task_sampler.schema import TaskQuerySchema, empty_task_query_df
+from meds_random_task_sampler.schema import TaskQuerySchema, empty_task_query_df, window_length_expr
 from meds_random_task_sampler.seeds import derive_seed
 
 logger = logging.getLogger(__name__)
@@ -560,7 +560,7 @@ def evaluate_index_df(
             "inputs (e.g. a stale _prediction_times cache)."
         )
 
-    duration_expr = pl.duration(seconds=pl.col(TaskQuerySchema.duration_days_name) * 86_400)
+    duration_expr = window_length_expr(TaskQuerySchema.duration_days_name)
     window_end = pl.col(TaskQuerySchema.prediction_time_name) + duration_expr
     # death_time is null for subjects who never die; `null <= window_end` is null, which would
     # poison the OR (null | False = null) and mislabel a living subject's past-max_time window as
